@@ -2,14 +2,13 @@ import os
 import numpy as np
 import torch
 
-
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class SerializedBuffer:
 
     def __init__(self, path, device):
         tmp = torch.load(path)
         self.buffer_size = self._n = tmp['state'].size(0)
-        self.device = device
-
+        self.device = torch.device("cpu")# torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.states = tmp['state'].clone().to(self.device)
         self.actions = tmp['action'].clone().to(self.device)
         self.rewards = tmp['reward'].clone().to(self.device)
@@ -47,6 +46,13 @@ class Buffer(SerializedBuffer):
             (buffer_size, *state_shape), dtype=torch.float, device=device)
 
     def append(self, state, action, reward, done, next_state):
+        # Convert state to np.ndarray if it's not
+        # print("state",state)
+        if isinstance(state, tuple):
+            state = state[0]
+        elif not isinstance(state,tuple):
+            pass
+        # print("new state",state)
         self.states[self._p].copy_(torch.from_numpy(state))
         self.actions[self._p].copy_(torch.from_numpy(action))
         self.rewards[self._p] = float(reward)
@@ -92,6 +98,10 @@ class RolloutBuffer:
             (self.total_size, *state_shape), dtype=torch.float, device=device)
 
     def append(self, state, action, reward, done, log_pi, next_state):
+        if isinstance(state, tuple):
+            state = state[0]
+        elif not isinstance(state,tuple):
+            pass
         self.states[self._p].copy_(torch.from_numpy(state))
         self.actions[self._p].copy_(torch.from_numpy(action))
         self.rewards[self._p] = float(reward)
@@ -118,6 +128,14 @@ class RolloutBuffer:
     def sample(self, batch_size):
         assert self._p % self.buffer_size == 0
         idxes = np.random.randint(low=0, high=self._n, size=batch_size)
+        # assert batch_size <= self._n, "Batch size cannot be greater than the number of data points."
+
+        # # Select a random starting index
+        # start_idx = np.random.randint(low=0, high=self._n - batch_size + 1)
+
+        # # Create a range of consecutive indices from the starting index
+        # idxes = np.arange(start_idx, start_idx + batch_size)
+        # print(idxes)
         return (
             self.states[idxes],
             self.actions[idxes],

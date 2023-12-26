@@ -2,6 +2,8 @@ import os
 import torch
 from torch import nn
 from torch.optim import Adam
+import matplotlib.pyplot as plt
+import numpy as np
 
 from .base import Algorithm
 from gail_airl_ppo.buffer import Buffer
@@ -14,7 +16,7 @@ from gail_airl_ppo.network import (
 class SAC(Algorithm):
 
     def __init__(self, state_shape, action_shape, device, seed, gamma=0.99,
-                 batch_size=256, buffer_size=10**6, lr_actor=3e-4,
+                 batch_size=256, buffer_size=10**5, lr_actor=3e-4,
                  lr_critic=3e-4, lr_alpha=3e-4, units_actor=(256, 256),
                  units_critic=(256, 256), start_steps=10000, tau=5e-3):
         super().__init__(state_shape, action_shape, device, seed, gamma)
@@ -58,7 +60,8 @@ class SAC(Algorithm):
         self.log_alpha = torch.zeros(1, device=device, requires_grad=True)
         # Target entropy is -|A|.
         self.target_entropy = -float(action_shape[0])
-
+        self.plot_reward=[]
+        self.plot_episode = []
         self.optim_actor = Adam(self.actor.parameters(), lr=lr_actor)
         self.optim_critic = Adam(self.critic.parameters(), lr=lr_critic)
         self.optim_alpha = torch.optim.Adam([self.log_alpha], lr=lr_alpha)
@@ -66,6 +69,15 @@ class SAC(Algorithm):
         self.batch_size = batch_size
         self.start_steps = start_steps
         self.tau = tau
+    def plot(self):
+        #plot the reward and episode
+        plt.plot(self.plot_episode, self.plot_reward)
+        plt.xlabel('episode')
+        plt.ylabel('reward')
+        plt.show()
+        plt.savefig("EXpert.png")
+        # Option 1: Save as a CSV file
+        np.savetxt("Expert_data.csv", np.column_stack((self.plot_episode, self.plot_reward)), delimiter=",", header="Episode,Reward")
 
     def is_update(self, steps):
         return steps >= max(self.start_steps, self.batch_size)
@@ -78,9 +90,9 @@ class SAC(Algorithm):
         else:
             action = self.explore(state)[0]
 
-        next_state, reward, done, _ = env.step(action)
+        next_state, reward, done, _, _ = env.step(action)
         mask = False if t == env._max_episode_steps else done
-
+        # print("reward", reward)
         self.buffer.append(state, action, reward, mask, next_state)
 
         if done:

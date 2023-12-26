@@ -11,7 +11,7 @@ from gail_airl_ppo.trainer import Trainer
 def run(args):
     env = make_env(args.env_id)
     env_test = make_env(args.env_id)
-
+    print("shape", env.observation_space.shape, env.action_space.shape)
     algo = SAC(
         state_shape=env.observation_space.shape,
         action_shape=env.action_space.shape,
@@ -33,7 +33,7 @@ def run(args):
         seed=args.seed
     )
     trainer.train()
-
+    trainer.plot()
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()

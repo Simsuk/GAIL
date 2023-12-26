@@ -1,11 +1,12 @@
 import torch
 from torch import nn
 from torch.optim import Adam
-
+#matplotlib inline
+import matplotlib.pyplot as plt
 from .base import Algorithm
 from gail_airl_ppo.buffer import RolloutBuffer
 from gail_airl_ppo.network import StateIndependentPolicy, StateFunction
-
+import numpy as np
 
 def calculate_gae(values, rewards, dones, next_values, gamma, lambd):
     # Calculate TD errors.
@@ -24,7 +25,7 @@ def calculate_gae(values, rewards, dones, next_values, gamma, lambd):
 class PPO(Algorithm):
 
     def __init__(self, state_shape, action_shape, device, seed, gamma=0.995,
-                 rollout_length=2048, mix_buffer=20, lr_actor=3e-4,
+                 rollout_length=2000, mix_buffer=20, lr_actor=3e-4,
                  lr_critic=3e-4, units_actor=(64, 64), units_critic=(64, 64),
                  epoch_ppo=10, clip_eps=0.2, lambd=0.97, coef_ent=0.0,
                  max_grad_norm=10.0):
@@ -65,6 +66,8 @@ class PPO(Algorithm):
         self.coef_ent = coef_ent
         self.max_grad_norm = max_grad_norm
 
+        self.plot_reward=[]
+        self.plot_episode = []
     def is_update(self, step):
         return step % self.rollout_length == 0
 
@@ -72,9 +75,11 @@ class PPO(Algorithm):
         t += 1
 
         action, log_pi = self.explore(state)
-        next_state, reward, done, _ = env.step(action)
+        
+        next_state, reward, done, _, _ = env.step(action)
         mask = False if t == env._max_episode_steps else done
-
+        # self.plot_reward.append(reward)
+        # self.plot_episode.append(step)
         self.buffer.append(state, action, reward, mask, log_pi, next_state)
 
         if done:
@@ -82,6 +87,15 @@ class PPO(Algorithm):
             next_state = env.reset()
 
         return next_state, t
+    def plot(self):
+        #plot the reward and episode
+        plt.plot(self.plot_episode, self.plot_reward)
+        plt.xlabel('episode')
+        plt.ylabel('reward')
+        plt.show()
+        plt.savefig("GAIL.png")
+        # Option 1: Save as a CSV file
+        np.savetxt("GAIL_data.csv", np.column_stack((self.plot_episode, self.plot_reward)), delimiter=",", header="Episode,Reward")
 
     def update(self, writer):
         self.learning_steps += 1

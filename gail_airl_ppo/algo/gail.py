@@ -14,7 +14,7 @@ class GAIL(PPO):
                  batch_size=64, lr_actor=3e-4, lr_critic=3e-4, lr_disc=3e-4,
                  units_actor=(64, 64), units_critic=(64, 64),
                  units_disc=(100, 100), epoch_ppo=50, epoch_disc=10,
-                 clip_eps=0.2, lambd=0.97, coef_ent=0.0, max_grad_norm=10.0):
+                 clip_eps=0.2, lambd=0.97, coef_ent=0, max_grad_norm=10.0):
         super().__init__(
             state_shape, action_shape, device, seed, gamma, rollout_length,
             mix_buffer, lr_actor, lr_critic, units_actor, units_critic,
@@ -45,6 +45,7 @@ class GAIL(PPO):
 
             # Samples from current policy's trajectories.
             states, actions = self.buffer.sample(self.batch_size)[:2]
+
             # Samples from expert's demonstrations.
             states_exp, actions_exp = \
                 self.buffer_exp.sample(self.batch_size)[:2]

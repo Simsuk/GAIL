@@ -2,7 +2,7 @@ import os
 import argparse
 from datetime import datetime
 import torch
-
+import matplotlib
 from gail_airl_ppo.env import make_env
 from gail_airl_ppo.buffer import SerializedBuffer
 from gail_airl_ppo.algo import ALGOS
@@ -14,14 +14,14 @@ def run(args):
     env_test = make_env(args.env_id)
     buffer_exp = SerializedBuffer(
         path=args.buffer,
-        device=torch.device("cuda" if args.cuda else "cpu")
+        device= "cpu" #torch.device("cuda" if args.cuda else "cpu")
     )
 
     algo = ALGOS[args.algo](
         buffer_exp=buffer_exp,
         state_shape=env.observation_space.shape,
         action_shape=env.action_space.shape,
-        device=torch.device("cuda" if args.cuda else "cpu"),
+        device=torch.device("cpu" if args.cuda else "cpu"),
         seed=args.seed,
         rollout_length=args.rollout_length
     )
@@ -40,12 +40,12 @@ def run(args):
         seed=args.seed
     )
     trainer.train()
-
+    trainer.plot()
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--buffer', type=str, required=True)
-    p.add_argument('--rollout_length', type=int, default=50000)
+    p.add_argument('--rollout_length', type=int, default=5000)
     p.add_argument('--num_steps', type=int, default=10**7)
     p.add_argument('--eval_interval', type=int, default=10**5)
     p.add_argument('--env_id', type=str, default='Hopper-v3')

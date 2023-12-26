@@ -2,22 +2,26 @@ import os
 from time import time, sleep
 from datetime import timedelta
 from torch.utils.tensorboard import SummaryWriter
-
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import matplotlib
+matplotlib.use('Agg')
 
 class Trainer:
 
-    def __init__(self, env, env_test, algo, log_dir, seed=0, num_steps=10**5,
-                 eval_interval=10**3, num_eval_episodes=5):
+    def __init__(self, env, env_test, algo, log_dir, seed=0, num_steps=10**6,
+                 eval_interval=10**3, num_eval_episodes=1):
         super().__init__()
 
         # Env to collect samples.
         self.env = env
-        self.env.seed(seed)
-
+        # self.env.seed(seed)
+        self.seed   = seed
         # Env for evaluation.
         self.env_test = env_test
-        self.env_test.seed(2**31-seed)
-
+        # self.env_test.seed(2**31-seed)
+        self.plot_reward=[]
+        self.plot_episode = []
         self.algo = algo
         self.log_dir = log_dir
 
@@ -39,22 +43,27 @@ class Trainer:
         # Episode's timestep.
         t = 0
         # Initialize the environment.
-        state = self.env.reset()
+        state = self.env.reset(seed=self.seed)
 
-        for step in range(1, self.num_steps + 1):
-            # Pass to the algorithm to update state and episode timestep.
-            state, t = self.algo.step(self.env, state, t, step)
+        with tqdm(total=self.num_steps) as pbar:
+            for step in range(1, self.num_steps + 1):
+                # Pass to the algorithm to update state and episode timestep.
+                state, t = self.algo.step(self.env, state, t, step)
 
-            # Update the algorithm whenever ready.
-            if self.algo.is_update(step):
-                self.algo.update(self.writer)
+                # Update the algorithm whenever ready.
+                if self.algo.is_update(step):
+                    self.algo.update(self.writer)
 
-            # Evaluate regularly.
-            if step % self.eval_interval == 0:
-                self.evaluate(step)
-                self.algo.save_models(
-                    os.path.join(self.model_dir, f'step{step}'))
+                # Evaluate regularly.
+                
+                if step % self.eval_interval == 0:
+                    self.evaluate(step)
+                    self.algo.save_models(
+                        os.path.join(self.model_dir, f'step{step}'))
 
+                pbar.update(1)
+                if step% 300000 == 0:
+                    self.plot()
         # Wait for the logging to be finished.
         sleep(10)
 
@@ -62,22 +71,34 @@ class Trainer:
         mean_return = 0.0
 
         for _ in range(self.num_eval_episodes):
-            state = self.env_test.reset()
+            state, _ = self.env_test.reset()
             episode_return = 0.0
             done = False
 
             while (not done):
                 action = self.algo.exploit(state)
-                state, reward, done, _ = self.env_test.step(action)
+                state, reward, done, _, _ = self.env_test.step(action)
                 episode_return += reward
-
+                # print(reward)
             mean_return += episode_return / self.num_eval_episodes
-
-        self.writer.add_scalar('return/test', mean_return, step)
-        print(f'Num steps: {step:<6}   '
+        
+            self.writer.add_scalar('return/test', mean_return, step)
+            print(f'Num steps: {step:<6}   '
               f'Return: {mean_return:<5.1f}   '
               f'Time: {self.time}')
+            self.algo.plot_reward.append(mean_return)
+            self.algo.plot_episode.append(step)
 
+        # self.plot_reward.append(mean_return)
+        # self.plot_episode.append(step)
+    def plot(self):
+        # plt.plot(self.plot_episode, self.plot_reward)
+        # plt.xlabel("episode")
+        # plt.ylabel("reward")
+        # plt.show()
+        # #save the plot to the current folder
+        # plt.savefig("GAIL.png")
+        self.algo.plot()
     @property
     def time(self):
         return str(timedelta(seconds=int(time() - self.start_time)))
